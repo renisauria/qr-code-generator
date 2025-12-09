@@ -16,6 +16,7 @@ export default function QRCodeGenerator() {
   const [backgroundColor, setBackgroundColor] = useState('#ffffff');
   const [size, setSize] = useState(256);
   const [qrCodeUrl, setQrCodeUrl] = useState('');
+  const [svgString, setSvgString] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -24,6 +25,7 @@ export default function QRCodeGenerator() {
   const generateQRCode = useCallback(async (options: QRCodeOptions) => {
     if (!options.text.trim()) {
       setQrCodeUrl('');
+      setSvgString('');
       setError(null);
       return;
     }
@@ -47,6 +49,19 @@ export default function QRCodeGenerator() {
       const url = canvas.toDataURL('image/png');
       setQrCodeUrl(url);
 
+      // Generate SVG version
+      const svg = await QRCode.toString(options.text, {
+        type: 'svg',
+        width: options.size,
+        margin: 2,
+        color: {
+          dark: options.foregroundColor,
+          light: options.backgroundColor,
+        },
+        errorCorrectionLevel: 'M',
+      });
+      setSvgString(svg);
+
       if (canvasRef.current) {
         canvasRef.current.width = options.size;
         canvasRef.current.height = options.size;
@@ -58,6 +73,7 @@ export default function QRCodeGenerator() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate QR code');
       setQrCodeUrl('');
+      setSvgString('');
     } finally {
       setIsGenerating(false);
     }
@@ -79,13 +95,25 @@ export default function QRCodeGenerator() {
     };
   }, [text, foregroundColor, backgroundColor, size, generateQRCode]);
 
-  const handleDownload = () => {
+  const handleDownloadPng = () => {
     if (!qrCodeUrl) return;
 
     const link = document.createElement('a');
     link.download = `qrcode-${Date.now()}.png`;
     link.href = qrCodeUrl;
     link.click();
+  };
+
+  const handleDownloadSvg = () => {
+    if (!svgString) return;
+
+    const blob = new Blob([svgString], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.download = `qrcode-${Date.now()}.svg`;
+    link.href = url;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -129,20 +157,20 @@ export default function QRCodeGenerator() {
                 >
                   Foreground Color
                 </label>
-                <div className="flex gap-2">
+                <div className="relative">
                   <input
                     id="fg-color"
                     type="color"
                     value={foregroundColor}
                     onChange={(e) => setForegroundColor(e.target.value)}
-                    className="h-12 w-16 rounded-lg border-2 border-zinc-200 dark:border-zinc-700 cursor-pointer bg-transparent"
+                    className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded cursor-pointer border-0 p-0 bg-transparent [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded [&::-webkit-color-swatch]:border-2 [&::-webkit-color-swatch]:border-zinc-300 [&::-moz-color-swatch]:rounded [&::-moz-color-swatch]:border-2 [&::-moz-color-swatch]:border-zinc-300"
                     aria-label="QR code foreground color"
                   />
                   <input
                     type="text"
                     value={foregroundColor}
                     onChange={(e) => setForegroundColor(e.target.value)}
-                    className="flex-1 px-3 py-2 rounded-lg border-2 border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-sm font-mono focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 outline-none transition-all"
+                    className="w-full pl-12 pr-3 py-3 rounded-lg border-2 border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-sm font-mono focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 outline-none transition-all"
                     pattern="^#[0-9A-Fa-f]{6}$"
                     aria-label="Foreground color hex value"
                   />
@@ -156,20 +184,20 @@ export default function QRCodeGenerator() {
                 >
                   Background Color
                 </label>
-                <div className="flex gap-2">
+                <div className="relative">
                   <input
                     id="bg-color"
                     type="color"
                     value={backgroundColor}
                     onChange={(e) => setBackgroundColor(e.target.value)}
-                    className="h-12 w-16 rounded-lg border-2 border-zinc-200 dark:border-zinc-700 cursor-pointer bg-transparent"
+                    className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded cursor-pointer border-0 p-0 bg-transparent [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded [&::-webkit-color-swatch]:border-2 [&::-webkit-color-swatch]:border-zinc-300 [&::-moz-color-swatch]:rounded [&::-moz-color-swatch]:border-2 [&::-moz-color-swatch]:border-zinc-300"
                     aria-label="QR code background color"
                   />
                   <input
                     type="text"
                     value={backgroundColor}
                     onChange={(e) => setBackgroundColor(e.target.value)}
-                    className="flex-1 px-3 py-2 rounded-lg border-2 border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-sm font-mono focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 outline-none transition-all"
+                    className="w-full pl-12 pr-3 py-3 rounded-lg border-2 border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-sm font-mono focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 outline-none transition-all"
                     pattern="^#[0-9A-Fa-f]{6}$"
                     aria-label="Background color hex value"
                   />
@@ -248,29 +276,54 @@ export default function QRCodeGenerator() {
             </div>
 
             {qrCodeUrl && !error && (
-              <button
-                onClick={handleDownload}
-                className="mt-6 w-full max-w-xs px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-blue-500/50"
-                aria-label="Download QR code as PNG"
-              >
-                <span className="flex items-center justify-center gap-2">
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                    />
-                  </svg>
-                  Download PNG
-                </span>
-              </button>
+              <div className="mt-6 flex gap-3 w-full max-w-xs">
+                <button
+                  onClick={handleDownloadPng}
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-blue-500/50"
+                  aria-label="Download QR code as PNG"
+                >
+                  <span className="flex items-center justify-center gap-2">
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                      />
+                    </svg>
+                    PNG
+                  </span>
+                </button>
+                <button
+                  onClick={handleDownloadSvg}
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-emerald-500/50"
+                  aria-label="Download QR code as SVG"
+                >
+                  <span className="flex items-center justify-center gap-2">
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                      />
+                    </svg>
+                    SVG
+                  </span>
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -345,7 +398,7 @@ export default function QRCodeGenerator() {
 
       {/* Features Footer */}
       <div className="mt-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
-        <p>Features: Real-time generation • Custom colors • Adjustable size • PNG download</p>
+        <p>Features: Real-time generation • Custom colors • Adjustable size • PNG & SVG download</p>
       </div>
     </div>
   );
